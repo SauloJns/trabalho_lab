@@ -1,0 +1,45 @@
+{
+  "user-service": {
+    "url": "http://localhost:3001",
+    "version": "1.0.0",
+    "endpoints": [
+      "/auth/register",
+      "/auth/login",
+      "/auth/validate",
+      "/users/:id"
+    ],
+    "registeredAt": 1758552864786,
+    "lastHealthCheck": 1758553293136,
+    "healthy": true,
+    "pid": 27208
+  },
+  "item-service": {
+    "url": "http://localhost:3002",
+    "version": "1.0.0",
+    "endpoints": [
+      "/items",
+      "/items/:id",
+      "/categories",
+      "/items/search"
+    ],
+    "registeredAt": 1758552868939,
+    "lastHealthCheck": 1758553293139,
+    "healthy": true,
+    "pid": 49980
+  },
+  "list-service": {
+    "url": "http://localhost:3003",
+    "version": "1.0.0",
+    "endpoints": [
+      "/lists",
+      "/lists/:id",
+      "/lists/:id/items",
+      "/lists/:id/summary",
+      "/search"
+    ],
+    "registeredAt": 1758552873046,
+    "lastHealthCheck": 1758553293142,
+    "healthy": true,
+    "pid": 34036
+  }
+}

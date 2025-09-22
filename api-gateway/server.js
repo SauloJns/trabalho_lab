@@ -1,207 +1,238 @@
 const express = require('express');
-const { createProxyMiddleware } = require('http-proxy-middleware');
+const cors = require('cors');
+const helmet = require('helmet');
 const morgan = require('morgan');
 const axios = require('axios');
+
 const serviceRegistry = require('../shared/serviceRegistry');
 
-const app = express();
-const PORT = 3000;
+class APIGateway {
+    constructor() {
+        this.app = express();
+        this.port = 3000;
+        this.circuitBreakers = new Map();
 
-app.use(morgan('combined'));
-app.use(express.json());
-
-
-setInterval(() => {
-  const services = serviceRegistry.getAllServices();
-
-  Object.keys(services).forEach(async (serviceName) => {
-    const service = services[serviceName];
-    if (!service) return;
-
-    try {
-      await axios.get(`${service.url}/health`, { timeout: 2000 });
-      serviceRegistry.markSuccess(serviceName);
-    } catch (error) {
-      serviceRegistry.markFailure(serviceName);
-    }
-  });
-}, 30000);
-
-
-const circuitBreaker = (req, res, next) => {
-  const serviceName = getServiceNameFromPath(req.path);
-  const service = serviceRegistry.getAllServices()[serviceName];
-
-  if (service && !service.healthy) {
-    return res.status(503).json({
-      error: 'Service temporarily unavailable',
-      service: serviceName
-    });
-  }
-
-  next();
-};
-
-
-const getServiceNameFromPath = (path) => {
-  if (path.startsWith('/api/auth') || path.startsWith('/api/users')) {
-    return 'user-service';
-  } else if (path.startsWith('/api/items')) {
-    return 'item-service';
-  } else if (path.startsWith('/api/lists')) {
-    return 'list-service';
-  }
-  return null;
-};
-
-const createDynamicProxy = (serviceName, fallbackUrl, pathRewrite) =>
-  createProxyMiddleware({
-    target: fallbackUrl,
-    changeOrigin: true,
-    router: () => serviceRegistry.getService(serviceName) || fallbackUrl,
-    pathRewrite: pathRewrite || {},
-    onError: (err, req, res) => {
-      console.error(`Proxy error for ${serviceName}:`, err.message);
-      serviceRegistry.markFailure(serviceName);
-      res.status(503).json({ error: `${serviceName} unavailable` });
-    }
-  });
-
-
-app.use('/api/auth', circuitBreaker, createDynamicProxy('user-service', 'http://localhost:3001'));
-app.use('/api/users', circuitBreaker, createDynamicProxy('user-service', 'http://localhost:3001'));
-app.use('/api/items', circuitBreaker, createDynamicProxy('item-service', 'http://localhost:3002', { '^/api/items': '/items' }));
-app.use('/api/lists', circuitBreaker, createDynamicProxy('list-service', 'http://localhost:3003', { '^/api/lists': '/lists' }));
-
-
-app.get('/api/dashboard', circuitBreaker, async (req, res) => {
-  try {
-    const authHeader = req.headers['authorization'];
-    if (!authHeader) return res.status(401).json({ error: 'Authorization header required' });
-
-    const userServiceUrl = serviceRegistry.getService('user-service');
-    const listServiceUrl = serviceRegistry.getService('list-service');
-
-    if (!userServiceUrl || !listServiceUrl)
-      return res.status(503).json({ error: 'Required service unavailable' });
-
-    const [userResponse, listsResponse] = await Promise.all([
-      axios.get(`${userServiceUrl}/users/me`, { headers: { Authorization: authHeader } }),
-      axios.get(`${listServiceUrl}/lists`, { headers: { Authorization: authHeader } })
-    ]);
-
-    const user = userResponse.data;
-    const lists = listsResponse.data;
-
-    const activeLists = lists.filter(list => list.status === 'active');
-    const completedLists = lists.filter(list => list.status === 'completed');
-    const totalItems = lists.reduce((sum, list) => sum + list.summary.totalItems, 0);
-    const purchasedItems = lists.reduce((sum, list) => sum + list.summary.purchasedItems, 0);
-    const totalEstimated = lists.reduce((sum, list) => sum + list.summary.estimatedTotal, 0);
-
-    res.json({
-      user: {
-        id: user.id,
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName
-      },
-      statistics: {
-        totalLists: lists.length,
-        activeLists: activeLists.length,
-        completedLists: completedLists.length,
-        totalItems,
-        purchasedItems,
-        totalEstimated: parseFloat(totalEstimated.toFixed(2))
-      },
-      recentLists: lists
-        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-        .slice(0, 5)
-    });
-
-  } catch (error) {
-    console.error('Dashboard error:', error.message);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/search', circuitBreaker, async (req, res) => {
-  try {
-    const { q } = req.query;
-    if (!q) return res.status(400).json({ error: 'Search query is required' });
-
-    const authHeader = req.headers['authorization'];
-    const results = {};
-
-    const itemServiceUrl = serviceRegistry.getService('item-service');
-    if (itemServiceUrl) {
-      try {
-        const itemsResponse = await axios.get(`${itemServiceUrl}/search?q=${encodeURIComponent(q)}`);
-        results.items = itemsResponse.data;
-      } catch (error) {
-        results.items = [];
-      }
+        this.setupMiddleware();
+        this.setupRoutes();
+        this.setupErrorHandling();
     }
 
-    if (authHeader) {
-      const listServiceUrl = serviceRegistry.getService('list-service');
-      if (listServiceUrl) {
+    setupMiddleware() {
+        this.app.use(helmet());
+        this.app.use(cors());
+        this.app.use(morgan('combined'));
+        this.app.use(express.json());
+    }
+
+    setupRoutes() {
+        this.app.get('/health', (req, res) => {
+            const services = serviceRegistry.listServices();
+            res.json({
+                service: 'api-gateway',
+                status: 'healthy',
+                timestamp: new Date().toISOString(),
+                services: services
+            });
+        });
+
+        this.app.get('/registry', (req, res) => {
+            const services = serviceRegistry.listServices();
+            res.json({ success: true, services });
+        });
+
+        this.app.use('/api/auth', this.proxyToService('user-service'));
+        this.app.use('/api/users', this.proxyToService('user-service'));
+        this.app.use('/api/items', this.proxyToService('item-service'));
+        this.app.use('/api/lists', this.proxyToService('list-service'));
+
+        this.app.get('/api/dashboard', this.getDashboard.bind(this));
+        this.app.get('/api/search', this.globalSearch.bind(this));
+    }
+
+    proxyToService(serviceName) {
+        return async (req, res) => {
+            try {
+                if (this.isCircuitOpen(serviceName)) {
+                    return res.status(503).json({
+                        success: false,
+                        message: `Serviço ${serviceName} temporariamente indisponível`
+                    });
+                }
+
+                const service = serviceRegistry.discover(serviceName);
+                let targetPath = req.originalUrl;
+
+                if (serviceName === 'user-service') {
+                    targetPath = targetPath.replace('/api/auth', '/auth').replace('/api/users', '/users');
+                } else if (serviceName === 'item-service') {
+                    targetPath = targetPath.replace('/api/items', '/items');
+                } else if (serviceName === 'list-service') {
+                    targetPath = targetPath.replace('/api/lists', '/lists');
+                }
+
+                const url = `${service.url}${targetPath}`;
+                const config = {
+                    method: req.method,
+                    url: url,
+                    headers: { ...req.headers },
+                    data: req.body,
+                    timeout: 10000
+                };
+
+                delete config.headers.host;
+
+                const response = await axios(config);
+                this.resetCircuitBreaker(serviceName);
+
+                res.status(response.status).json(response.data);
+
+            } catch (error) {
+                this.recordFailure(serviceName);
+
+                if (error.response) {
+                    res.status(error.response.status).json(error.response.data);
+                } else {
+                    res.status(503).json({
+                        success: false,
+                        message: `Serviço ${serviceName} indisponível`,
+                        error: error.message
+                    });
+                }
+            }
+        };
+    }
+
+    async getDashboard(req, res) {
         try {
-          const listsResponse = await axios.get(`${listServiceUrl}/lists`, {
-            headers: { Authorization: authHeader }
-          });
-          const lists = listsResponse.data;
-          results.lists = lists.filter(list =>
-            list.name.toLowerCase().includes(q.toLowerCase()) ||
-            list.description.toLowerCase().includes(q.toLowerCase())
-          );
-        } catch {
-          results.lists = [];
+            const authHeader = req.headers.authorization;
+            
+            if (!authHeader) {
+                return res.status(401).json({ success: false, message: 'Token necessário' });
+            }
+
+            const [userResponse, itemsResponse, listsResponse] = await Promise.allSettled([
+                this.callService('user-service', '/auth/validate', 'POST', authHeader, { token: authHeader.split(' ')[1] }),
+                this.callService('item-service', '/items?limit=5', 'GET'),
+                this.callService('list-service', '/lists', 'GET', authHeader)
+            ]);
+
+            const dashboard = {
+                user: userResponse.status === 'fulfilled' ? userResponse.value.data : null,
+                recentItems: itemsResponse.status === 'fulfilled' ? itemsResponse.value.data : null,
+                userLists: listsResponse.status === 'fulfilled' ? listsResponse.value.data : null,
+                timestamp: new Date().toISOString()
+            };
+
+            res.json({ success: true, data: dashboard });
+
+        } catch (error) {
+            console.error('Erro no dashboard:', error);
+            res.status(500).json({ success: false, message: 'Erro ao carregar dashboard' });
         }
-      } else {
-        results.lists = [];
-      }
-    } else {
-      results.lists = [];
     }
 
-    res.json(results);
-  } catch (error) {
-    console.error('Global search error:', error.message);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+    async globalSearch(req, res) {
+        try {
+            const { q } = req.query;
+            const authHeader = req.headers.authorization;
 
+            if (!q) {
+                return res.status(400).json({ success: false, message: 'Parâmetro "q" obrigatório' });
+            }
 
-app.get('/health', (req, res) => {
-  const services = serviceRegistry.getAllServices();
-  const status = {};
-  Object.keys(services).forEach(s => status[s] = services[s].healthy ? 'healthy' : 'unhealthy');
-  res.json({ gateway: 'healthy', services: status, timestamp: new Date().toISOString() });
-});
+            const [itemsResponse, listsResponse] = await Promise.allSettled([
+                this.callService('item-service', `/search?q=${encodeURIComponent(q)}`, 'GET'),
+                authHeader ? this.callService('list-service', `/search?q=${encodeURIComponent(q)}`, 'GET', authHeader) : Promise.resolve({ data: [] })
+            ]);
 
-app.get('/registry', (req, res) => {
-  res.json(serviceRegistry.getAllServices());
-});
+            const results = {
+                items: itemsResponse.status === 'fulfilled' ? itemsResponse.value.data : { results: [], total: 0 },
+                lists: listsResponse.status === 'fulfilled' ? listsResponse.value.data : { results: [], total: 0 }
+            };
 
+            res.json({ success: true, data: results });
 
-app.get('/', (req, res) => {
-  res.json({
-    message: 'Shopping List Microservices API Gateway',
-    endpoints: {
-      auth: '/api/auth',
-      users: '/api/users',
-      items: '/api/items',
-      lists: '/api/lists',
-      dashboard: '/api/dashboard',
-      search: '/api/search',
-      health: '/health',
-      registry: '/registry'
+        } catch (error) {
+            console.error('Erro na busca global:', error);
+            res.status(500).json({ success: false, message: 'Erro na busca' });
+        }
     }
-  });
-});
 
+    async callService(serviceName, path, method, authHeader = null, data = null) {
+        const service = serviceRegistry.discover(serviceName);
+        const config = {
+            method,
+            url: `${service.url}${path}`,
+            timeout: 5000
+        };
 
-app.listen(PORT, () => {
-  console.log(`API Gateway running on port ${PORT}`);
-});
+        if (authHeader) {
+            config.headers = { Authorization: authHeader };
+        }
+
+        if (data && method !== 'GET') {
+            config.data = data;
+        }
+
+        const response = await axios(config);
+        return response.data;
+    }
+
+    isCircuitOpen(serviceName) {
+        const breaker = this.circuitBreakers.get(serviceName);
+        if (!breaker) return false;
+
+        if (breaker.isOpen && (Date.now() - breaker.lastFailure) > 30000) {
+            breaker.isOpen = false;
+            breaker.failures = 0;
+            return false;
+        }
+
+        return breaker.isOpen;
+    }
+
+    recordFailure(serviceName) {
+        let breaker = this.circuitBreakers.get(serviceName) || { failures: 0, isOpen: false, lastFailure: null };
+        
+        breaker.failures++;
+        breaker.lastFailure = Date.now();
+
+        if (breaker.failures >= 3) {
+            breaker.isOpen = true;
+        }
+
+        this.circuitBreakers.set(serviceName, breaker);
+    }
+
+    resetCircuitBreaker(serviceName) {
+        const breaker = this.circuitBreakers.get(serviceName);
+        if (breaker) {
+            breaker.failures = 0;
+            breaker.isOpen = false;
+        }
+    }
+
+    setupErrorHandling() {
+        this.app.use('*', (req, res) => {
+            res.status(404).json({ success: false, message: 'Endpoint não encontrado' });
+        });
+
+        this.app.use((error, req, res, next) => {
+            console.error('Gateway Error:', error);
+            res.status(500).json({ success: false, message: 'Erro interno do gateway' });
+        });
+    }
+
+    start() {
+        this.app.listen(this.port, () => {
+            console.log('=====================================');
+            console.log(`🚀 API Gateway rodando na porta ${this.port}`);
+            console.log(`📍 Health: http://localhost:${this.port}/health`);
+            console.log(`📋 Registry: http://localhost:${this.port}/registry`);
+            console.log('=====================================');
+        });
+    }
+}
+
+const gateway = new APIGateway();
+gateway.start();

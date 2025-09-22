@@ -1,121 +1,143 @@
-// shared/serviceRegistry.js
-const fs = require('fs');
+const fs = require('fs-extra');
 const path = require('path');
-
-const REGISTRY_FILE = path.join(__dirname, 'serviceRegistry.json');
+const axios = require('axios');
 
 class ServiceRegistry {
-  constructor() {
-    this.services = {};
-    this.ensureRegistryFile();
-    this.loadRegistry();
-    setInterval(() => this.cleanup(), 30000); // Cleanup a cada 30 segundos
-  }
-
-  ensureRegistryFile() {
-    try {
-      if (!fs.existsSync(REGISTRY_FILE)) {
-        fs.writeFileSync(REGISTRY_FILE, JSON.stringify({}));
-      }
-    } catch (error) {
-      console.error('Error ensuring registry file exists:', error);
+    constructor() {
+        this.registryFile = path.join(__dirname, 'services-registry.json');
+        this.ensureRegistryFile();
     }
-  }
 
-  loadRegistry() {
-    try {
-      const data = fs.readFileSync(REGISTRY_FILE, 'utf8');
-      this.services = data ? JSON.parse(data) : {};
-    } catch (error) {
-      console.error('Error loading service registry:', error);
-      this.services = {};
+    ensureRegistryFile() {
+        if (!fs.existsSync(this.registryFile)) {
+            fs.writeJsonSync(this.registryFile, {});
+        }
     }
-  }
 
-  saveRegistry() {
-    try {
-      fs.writeFileSync(REGISTRY_FILE, JSON.stringify(this.services, null, 2));
-    } catch (error) {
-      console.error('Error saving service registry:', error);
+    readRegistry() {
+        try {
+            return fs.readJsonSync(this.registryFile);
+        } catch (error) {
+            return {};
+        }
     }
-  }
 
-  register(serviceName, serviceUrl) {
-    const timestamp = Date.now();
-    this.services[serviceName] = {
-      url: serviceUrl,
-      timestamp,
-      healthy: true,
-      failures: 0
-    };
-    this.saveRegistry();
-    console.log(`Service registered: ${serviceName} at ${serviceUrl}`);
-  }
-
-  unregister(serviceName) {
-    if (this.services[serviceName]) {
-      delete this.services[serviceName];
-      this.saveRegistry();
-      console.log(`Service unregistered: ${serviceName}`);
+    writeRegistry(services) {
+        fs.writeJsonSync(this.registryFile, services, { spaces: 2 });
     }
-  }
 
-  getService(serviceName) {
-    const service = this.services[serviceName];
-    if (service && service.healthy) {
-      return service.url;
+    register(serviceName, serviceInfo) {
+        const services = this.readRegistry();
+        
+        services[serviceName] = {
+            ...serviceInfo,
+            registeredAt: Date.now(),
+            lastHealthCheck: Date.now(),
+            healthy: true,
+            pid: process.pid
+        };
+
+        this.writeRegistry(services);
+        console.log(`✅ Serviço registrado: ${serviceName} - ${serviceInfo.url}`);
     }
-    return null;
-  }
 
-  markFailure(serviceName) {
-    const service = this.services[serviceName];
-    if (!service) return;
-    service.failures += 1;
-    if (service.failures >= 3) {
-      service.healthy = false; // Circuit breaker
-      console.log(`Circuit opened for service: ${serviceName}`);
+    discover(serviceName) {
+        const services = this.readRegistry();
+        const service = services[serviceName];
+        
+        if (!service) {
+            console.log(`❌ Serviço não encontrado: ${serviceName}`);
+            console.log(`📋 Serviços disponíveis:`, Object.keys(services));
+            throw new Error(`Serviço não encontrado: ${serviceName}`);
+        }
+        
+        if (!service.healthy) {
+            console.log(`⚠️ Serviço indisponível: ${serviceName}`);
+            throw new Error(`Serviço indisponível: ${serviceName}`);
+        }
+        
+        console.log(`🔍 Serviço encontrado: ${serviceName} - ${service.url}`);
+        return service;
     }
-    this.saveRegistry();
-  }
 
-  markSuccess(serviceName) {
-    const service = this.services[serviceName];
-    if (!service) return;
-    service.failures = 0;
-    service.healthy = true;
-    service.timestamp = Date.now();
-    this.saveRegistry();
-    console.log(`Circuit closed for service: ${serviceName}`);
-  }
+    listServices() {
+        const services = this.readRegistry();
+        const result = {};
+        
+        Object.entries(services).forEach(([name, service]) => {
+            result[name] = {
+                url: service.url,
+                healthy: service.healthy,
+                registeredAt: new Date(service.registeredAt).toISOString(),
+                uptime: Date.now() - service.registeredAt
+            };
+        });
+        
+        return result;
+    }
 
-  updateHealth(serviceName, isHealthy) {
-    const service = this.services[serviceName];
-    if (!service) return;
-    service.healthy = isHealthy;
-    service.timestamp = Date.now();
-    this.saveRegistry();
-  }
+    unregister(serviceName) {
+        const services = this.readRegistry();
+        if (services[serviceName]) {
+            delete services[serviceName];
+            this.writeRegistry(services);
+            console.log(`🗑️ Serviço removido: ${serviceName}`);
+        }
+    }
 
-  cleanup() {
-    const now = Date.now();
-    let changed = false;
+    updateHealth(serviceName, healthy) {
+        const services = this.readRegistry();
+        if (services[serviceName]) {
+            services[serviceName].healthy = healthy;
+            services[serviceName].lastHealthCheck = Date.now();
+            this.writeRegistry(services);
+        }
+    }
 
-    Object.keys(this.services).forEach(serviceName => {
-      const service = this.services[serviceName];
-      if (now - service.timestamp > 90000) { // 90s
-        delete this.services[serviceName];
-        changed = true;
-        console.log(`Service cleaned up: ${serviceName}`);
-      }
-    });
+    async performHealthChecks() {
+        const services = this.readRegistry();
+        
+        console.log(`🔍 Executando health checks para ${Object.keys(services).length} serviços...`);
+        
+        for (const [serviceName, service] of Object.entries(services)) {
+            try {
+                const response = await axios.get(`${service.url}/health`, { 
+                    timeout: 5000,
+                    validateStatus: function (status) {
+                        return status < 500;
+                    }
+                });
+                
+                if (response.status === 200) {
+                    this.updateHealth(serviceName, true);
+                    console.log(`✅ ${serviceName}: HEALTHY`);
+                } else {
+                    this.updateHealth(serviceName, false);
+                    console.log(`❌ ${serviceName}: UNHEALTHY - Status ${response.status}`);
+                }
+            } catch (error) {
+                console.error(`❌ Health check falhou para ${serviceName}:`, error.message);
+                this.updateHealth(serviceName, false);
+            }
+        }
+    }
 
-    if (changed) this.saveRegistry();
-  }
-
-  getAllServices() {
-    return this.services;
-  }
+    getServiceCount() {
+        const services = this.readRegistry();
+        return Object.keys(services).length;
+    }
 }
 
-module.exports = new ServiceRegistry();
+const serviceRegistry = new ServiceRegistry();
+
+// Iniciar health checks após 5 segundos
+setTimeout(() => {
+    serviceRegistry.performHealthChecks();
+}, 5000);
+
+// Health checks a cada 30 segundos
+setInterval(() => {
+    serviceRegistry.performHealthChecks();
+}, 30000);
+
+module.exports = serviceRegistry;
