@@ -25,15 +25,40 @@ class APIGateway {
     }
 
     setupRoutes() {
-        this.app.get('/health', (req, res) => {
-            const services = serviceRegistry.listServices();
-            res.json({
-                service: 'api-gateway',
+     this.app.get('/health', (req, res) => {
+    const services = serviceRegistry.listServices();
+    
+    const healthResponse = {
+        service: 'api-gateway',
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        architecture: 'Microservices with NoSQL',
+        database_approach: 'Database per Service',
+        services: services,
+        serviceCount: Object.keys(services).length,
+        gateway: {
+            port: this.port,
+            version: '1.0.0',
+            features: [
+                'Service Discovery',
+                'JWT Authentication', 
+                'Circuit Breaker',
+                'Request Aggregation',
+                'Global Search'
+            ]
+        },
+        services_details: Object.entries(services).reduce((acc, [name, service]) => {
+            acc[name] = {
+                url: service.url,
                 status: 'healthy',
-                timestamp: new Date().toISOString(),
-                services: services
-            });
-        });
+                endpoints: service.endpoints || []
+            };
+            return acc;
+        }, {})
+    };
+
+    res.json(healthResponse);
+});
 
         this.app.get('/registry', (req, res) => {
             const services = serviceRegistry.listServices();
@@ -49,116 +74,158 @@ class APIGateway {
         this.app.get('/api/search', this.globalSearch.bind(this));
     }
 
-    proxyToService(serviceName) {
-        return async (req, res) => {
-            try {
-                if (this.isCircuitOpen(serviceName)) {
-                    return res.status(503).json({
-                        success: false,
-                        message: `Serviço ${serviceName} temporariamente indisponível`
-                    });
-                }
+   proxyToService(serviceName) {
+    return async (req, res) => {
+        try {
+            if (this.isCircuitOpen(serviceName)) {
+                return res.status(503).json({
+                    success: false,
+                    message: `Serviço ${serviceName} temporariamente indisponível`
+                });
+            }
 
-                const service = serviceRegistry.discover(serviceName);
-                let targetPath = req.originalUrl;
+            const service = serviceRegistry.discover(serviceName);
+            let targetPath = req.originalUrl;
 
-                if (serviceName === 'user-service') {
-                    targetPath = targetPath.replace('/api/auth', '/auth').replace('/api/users', '/users');
-                } else if (serviceName === 'item-service') {
-                    targetPath = targetPath.replace('/api/items', '/items');
-                } else if (serviceName === 'list-service') {
-                    targetPath = targetPath.replace('/api/lists', '/lists');
-                }
+            if (serviceName === 'user-service') {
+                targetPath = targetPath.replace('/api/auth', '/auth').replace('/api/users', '/users');
+            } else if (serviceName === 'item-service') {
+                targetPath = targetPath.replace('/api/items', '/items')
+                                      .replace('/api/categories', '/categories');
+            } else if (serviceName === 'list-service') {
+                targetPath = targetPath.replace('/api/lists', '/lists');
+            }
+            
+            const url = `${service.url}${targetPath}`; 
+            const config = {
+                method: req.method,
+                url: url,
+                headers: { ...req.headers },
+                data: req.body,
+                timeout: 10000
+            };
 
-                const url = `${service.url}${targetPath}`;
-                const config = {
-                    method: req.method,
-                    url: url,
-                    headers: { ...req.headers },
-                    data: req.body,
-                    timeout: 10000
-                };
+            delete config.headers.host;
 
-                delete config.headers.host;
+            const response = await axios(config);
+            this.resetCircuitBreaker(serviceName);
 
-                const response = await axios(config);
-                this.resetCircuitBreaker(serviceName);
+            res.status(response.status).json(response.data);
 
-                res.status(response.status).json(response.data);
+        } catch (error) {
+            this.recordFailure(serviceName);
 
-            } catch (error) {
-                this.recordFailure(serviceName);
+            if (error.response) {
+                res.status(error.response.status).json(error.response.data);
+            } else {
+                res.status(503).json({
+                    success: false,
+                    message: `Serviço ${serviceName} indisponível`,
+                    error: error.message
+                });
+            }
+        }
+    }; 
+}
+    async getDashboard(req, res) {
+    try {
+        const authHeader = req.header('Authorization');
+        if (!authHeader) {
+            return res.status(401).json({
+                success: false,
+                message: 'Token de autenticação obrigatório'
+            });
+        }
 
-                if (error.response) {
-                    res.status(error.response.status).json(error.response.data);
-                } else {
-                    res.status(503).json({
-                        success: false,
-                        message: `Serviço ${serviceName} indisponível`,
-                        error: error.message
-                    });
-                }
+        let userId;
+        try {
+            const userService = serviceRegistry.discover('user-service');
+            const validateResponse = await axios.post(`${userService.url}/auth/validate`, {
+                token: authHeader.replace('Bearer ', '')
+            });
+            
+            userId = validateResponse.data.data?.user?.id || validateResponse.data.user?.id;
+        } catch (error) {
+            return res.status(401).json({
+                success: false,
+                message: 'Token inválido'
+            });
+        }
+
+        const [userResponse, itemsResponse, listsResponse] = await Promise.allSettled([
+            this.callService('user-service', `/users/${userId}`, 'GET', authHeader),
+            this.callService('item-service', '/items?limit=5', 'GET', authHeader),
+            this.callService('list-service', '/lists?limit=5', 'GET', authHeader)
+        ]);
+
+        const dashboard = {
+            success: true,
+            data: {
+                user: userResponse.status === 'fulfilled' ? 
+                    (userResponse.value.data || userResponse.value) : null,
+                recentItems: itemsResponse.status === 'fulfilled' ? 
+                    (itemsResponse.value.data || itemsResponse.value.items || itemsResponse.value) : [],
+                userLists: listsResponse.status === 'fulfilled' ? 
+                    (listsResponse.value.data || listsResponse.value.lists || listsResponse.value) : [],
+                timestamp: new Date().toISOString()
             }
         };
+
+        res.json(dashboard);
+    } catch (error) {
+        console.error('❌ Erro no dashboard:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erro ao agregar dados do dashboard'
+        });
     }
-
-    async getDashboard(req, res) {
-        try {
-            const authHeader = req.headers.authorization;
-            
-            if (!authHeader) {
-                return res.status(401).json({ success: false, message: 'Token necessário' });
-            }
-
-            const [userResponse, itemsResponse, listsResponse] = await Promise.allSettled([
-                this.callService('user-service', '/auth/validate', 'POST', authHeader, { token: authHeader.split(' ')[1] }),
-                this.callService('item-service', '/items?limit=5', 'GET'),
-                this.callService('list-service', '/lists', 'GET', authHeader)
-            ]);
-
-            const dashboard = {
-                user: userResponse.status === 'fulfilled' ? userResponse.value.data : null,
-                recentItems: itemsResponse.status === 'fulfilled' ? itemsResponse.value.data : null,
-                userLists: listsResponse.status === 'fulfilled' ? listsResponse.value.data : null,
-                timestamp: new Date().toISOString()
-            };
-
-            res.json({ success: true, data: dashboard });
-
-        } catch (error) {
-            console.error('Erro no dashboard:', error);
-            res.status(500).json({ success: false, message: 'Erro ao carregar dashboard' });
-        }
-    }
+}
 
     async globalSearch(req, res) {
-        try {
-            const { q } = req.query;
-            const authHeader = req.headers.authorization;
+    try {
+        const { q } = req.query;
+        const authHeader = req.headers.authorization;
 
-            if (!q) {
-                return res.status(400).json({ success: false, message: 'Parâmetro "q" obrigatório' });
-            }
-
-            const [itemsResponse, listsResponse] = await Promise.allSettled([
-                this.callService('item-service', `/search?q=${encodeURIComponent(q)}`, 'GET'),
-                authHeader ? this.callService('list-service', `/search?q=${encodeURIComponent(q)}`, 'GET', authHeader) : Promise.resolve({ data: [] })
-            ]);
-
-            const results = {
-                items: itemsResponse.status === 'fulfilled' ? itemsResponse.value.data : { results: [], total: 0 },
-                lists: listsResponse.status === 'fulfilled' ? listsResponse.value.data : { results: [], total: 0 }
-            };
-
-            res.json({ success: true, data: results });
-
-        } catch (error) {
-            console.error('Erro na busca global:', error);
-            res.status(500).json({ success: false, message: 'Erro na busca' });
+        if (!q) {
+            return res.status(400).json({ success: false, message: 'Parâmetro "q" obrigatório' });
         }
+
+        const [itemsResponse, listsResponse] = await Promise.allSettled([
+            this.callService('item-service', `/items/search?q=${encodeURIComponent(q)}`, 'GET', authHeader),
+            authHeader ? this.callService('list-service', `/search?q=${encodeURIComponent(q)}`, 'GET', authHeader) : 
+                        Promise.resolve({ data: { results: [], total: 0 } })
+        ]);
+
+        const itemsData = itemsResponse.status === 'fulfilled' ? itemsResponse.value.data : null;
+        const listsData = listsResponse.status === 'fulfilled' ? listsResponse.value.data : null;
+
+        const results = {
+            items: {
+                results: itemsData?.results || itemsData?.data?.results || itemsData || [],
+                total: itemsData?.total || itemsData?.data?.total || (itemsData?.results ? itemsData.results.length : 0)
+            },
+            lists: {
+                results: listsData?.results || listsData?.data?.results || listsData || [],
+                total: listsData?.total || listsData?.data?.total || (listsData?.results ? listsData.results.length : 0)
+            }
+        };
+
+        res.json({ 
+            success: true, 
+            data: {
+                query: q,
+                ...results
+            }
+        });
+
+    } catch (error) {
+        console.error('Erro na busca global:', error);
+        res.status(500).json({ success: false, message: 'Erro na busca' });
     }
+}
 
     async callService(serviceName, path, method, authHeader = null, data = null) {
+    try {
         const service = serviceRegistry.discover(serviceName);
         const config = {
             method,
@@ -175,8 +242,17 @@ class APIGateway {
         }
 
         const response = await axios(config);
-        return response.data;
+        
+        return {
+            status: response.status,
+            data: response.data.data || response.data, 
+            success: response.data.success !== false
+        };
+    } catch (error) {
+        console.error(`❌ Erro ao chamar serviço ${serviceName}:`, error.message);
+        throw error;
     }
+}
 
     isCircuitOpen(serviceName) {
         const breaker = this.circuitBreakers.get(serviceName);

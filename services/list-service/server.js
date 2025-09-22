@@ -200,28 +200,30 @@ class ListService {
     }
 
     async getLists(req, res) {
-        try {
-            console.log('📋 Buscando listas do usuário:', req.user.id);
-            
-            const lists = await this.listsDb.find({ 
-                userId: req.user.id 
-            }, {
-                sort: { updatedAt: -1 }
-            });
+    try {
+        console.log('📋 Buscando listas do usuário:', req.user.id);
+        
+        const lists = await this.listsDb.find({ 
+            userId: req.user.id 
+        }, {
+            sort: { updatedAt: -1 }
+        });
 
-            res.json({ 
-                success: true, 
-                data: lists 
-            });
+        res.json({ 
+            success: true, 
+            data: lists,
+            lists: lists, 
+            message: 'Listas recuperadas com sucesso'
+        });
 
-        } catch (error) {
-            console.error('❌ Erro ao buscar listas:', error);
-            res.status(500).json({ 
-                success: false, 
-                message: 'Erro interno do servidor' 
-            });
-        }
+    } catch (error) {
+        console.error('❌ Erro ao buscar listas:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erro interno do servidor' 
+        });
     }
+}
 
     async getList(req, res) {
         try {
@@ -345,49 +347,47 @@ class ListService {
     }
 
     async searchLists(req, res) {
-        try {
-            const { q } = req.query;
+    try {
+        const { q } = req.query;
 
-            console.log('🔍 Buscando listas por:', q);
+        console.log('Buscando listas por:', q);
 
-            if (!q) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'Parâmetro de busca "q" é obrigatório' 
-                });
-            }
-
-            const lists = await this.listsDb.find({ 
-                userId: req.user.id 
-            });
-
-            const searchTerm = q.toLowerCase();
-            const results = lists.filter(list => 
-                list.name.toLowerCase().includes(searchTerm) ||
-                (list.description && list.description.toLowerCase().includes(searchTerm)) ||
-                list.items.some(item => 
-                    item.itemName && item.itemName.toLowerCase().includes(searchTerm)
-                )
-            );
-
-            res.json({
-                success: true,
-                data: {
-                    query: q,
-                    results: results,
-                    total: results.length
-                }
-            });
-
-        } catch (error) {
-            console.error('❌ Erro na busca de listas:', error);
-            res.status(500).json({ 
+        if (!q) {
+            return res.status(400).json({ 
                 success: false, 
-                message: 'Erro interno do servidor' 
+                message: 'Parâmetro de busca "q" é obrigatório' 
             });
         }
-    }
 
+        const lists = await this.listsDb.find({ 
+            userId: req.user.id 
+        });
+
+        const searchTerm = q.toLowerCase();
+        const results = lists.filter(list => 
+            list.name.toLowerCase().includes(searchTerm) ||
+            (list.description && list.description.toLowerCase().includes(searchTerm)) ||
+            list.items.some(item => 
+                item.itemName && item.itemName.toLowerCase().includes(searchTerm)
+            )
+        );
+
+        res.json({
+            success: true,
+            data: {
+                results: results,
+                total: results.length
+            }
+        });
+
+    } catch (error) {
+        console.error('Erro na busca de listas:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erro interno do servidor' 
+        });
+    }
+}
     async addItem(req, res) {
         try {
             const { id } = req.params;

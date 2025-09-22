@@ -130,12 +130,10 @@ class ServiceRegistry {
 
 const serviceRegistry = new ServiceRegistry();
 
-// Iniciar health checks após 5 segundos
 setTimeout(() => {
     serviceRegistry.performHealthChecks();
 }, 5000);
 
-// Health checks a cada 30 segundos
 setInterval(() => {
     serviceRegistry.performHealthChecks();
 }, 30000);

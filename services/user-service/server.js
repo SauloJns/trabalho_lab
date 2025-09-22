@@ -370,42 +370,43 @@ class UserService {
     }
 
     async getUser(req, res) {
-        try {
-            const { id } = req.params;
+    try {
+        const { id } = req.params;
 
-            console.log('👤 Buscando usuário:', id);
+        console.log('👤 Buscando usuário:', id);
 
-            if (req.user.id !== id && req.user.role !== 'admin') {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'Acesso negado' 
-                });
-            }
-
-            const user = await this.usersDb.findById(id);
-
-            if (!user) {
-                return res.status(404).json({ 
-                    success: false, 
-                    message: 'Usuário não encontrado' 
-                });
-            }
-
-            const { password: _, ...userWithoutPassword } = user;
-
-            res.json({ 
-                success: true, 
-                data: userWithoutPassword 
-            });
-
-        } catch (error) {
-            console.error('❌ Erro ao buscar usuário:', error);
-            res.status(500).json({ 
+        if (req.user.id !== id && req.user.role !== 'admin') {
+            return res.status(403).json({ 
                 success: false, 
-                message: 'Erro interno do servidor' 
+                message: 'Acesso negado' 
             });
         }
+
+        const user = await this.usersDb.findById(id);
+
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Usuário não encontrado' 
+            });
+        }
+
+        const { password: _, ...userWithoutPassword } = user;
+
+        res.json({ 
+            success: true, 
+            data: userWithoutPassword,
+            message: 'Usuário encontrado com sucesso'
+        });
+
+    } catch (error) {
+        console.error('❌ Erro ao buscar usuário:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erro interno do servidor' 
+        });
     }
+}
 
     async updateUser(req, res) {
         try {
