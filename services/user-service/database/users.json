@@ -1,0 +1,18 @@
+[
+  {
+    "id": "e690489e-3c8c-414a-9d3e-b97e1806e069",
+    "email": "admin@compras.com",
+    "username": "admin",
+    "password": "$2a$12$8z34VbKEGgeFaJicANa8AOFZIEHKcIdhhTt4KSJtWxhjscClpHndu",
+    "firstName": "Administrador",
+    "lastName": "Sistema",
+    "preferences": {
+      "defaultStore": "Mercado Central",
+      "currency": "BRL"
+    },
+    "role": "admin",
+    "status": "active",
+    "createdAt": "2025-09-16T01:20:49.448Z",
+    "updatedAt": "2025-09-16T01:20:49.449Z"
+  }
+]

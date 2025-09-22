@@ -1,0 +1,44 @@
+[
+  {
+    "email": "novo@email.com",
+    "username": "novouser",
+    "password": "$2a$10$FEsAArgaUP93mPfpM1heIe1sBS/rTwP9SY0eLvnmYyfqfB4in8aDS",
+    "firstName": "Nome Atualizado",
+    "lastName": "Sobrenome Atualizado",
+    "preferences": {
+      "defaultStore": "Supermercado Novo",
+      "currency": "USD"
+    },
+    "id": "82d54ac9-009d-42c0-a582-a106e72a98a5",
+    "createdAt": "2025-09-22T00:30:49.775Z",
+    "updatedAt": "2025-09-22T00:33:31.376Z"
+  },
+  {
+    "email": "teste@email.com",
+    "username": "testuser",
+    "password": "$2a$10$lx6bJSy2zGmnabXyBADFLeIdTNsQ6ZJHiIgi678beDHfddQAJW9JC",
+    "firstName": "Nosdame Atualizado",
+    "lastName": "Sobrsdaenome Atualizado",
+    "preferences": {
+      "defaultStore": "Susadpermercado Novo",
+      "currency": "USD"
+    },
+    "id": "67c3081b-db26-4a02-8695-5475efef4351",
+    "createdAt": "2025-09-22T02:07:43.907Z",
+    "updatedAt": "2025-09-22T02:30:22.434Z"
+  },
+  {
+    "email": "testae@email.com",
+    "username": "testuaser",
+    "password": "$2a$10$XQ9t45C/lfOsn5pzTN7qMOa/4OkiKvTyF4R2K6KGPZ2hfn/oWs9LG",
+    "firstName": "Teste",
+    "lastName": "Usuario",
+    "preferences": {
+      "defaultStore": "",
+      "currency": "BRL"
+    },
+    "id": "cd9c13d9-0f6a-45f9-b467-665b602175b4",
+    "createdAt": "2025-09-22T02:22:04.110Z",
+    "updatedAt": "2025-09-22T02:22:04.110Z"
+  }
+]
