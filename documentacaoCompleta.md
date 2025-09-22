@@ -1,9 +1,11 @@
-Guia de Instalação e Uso do Sistema
-1. Instalação de Dependências
-# Instalar dependências de todos os serviços
+Guia de Instalação e Uso – Sistema de Listas de Compras Microservices
+1️⃣ Instalação de Dependências
+
+Para instalar todas as dependências de todos os serviços:
+
 npm run install:all
 
-2. Execução dos Serviços
+2️⃣ Execução dos Serviços
 Opção 1: Executar todos os serviços simultaneamente
 npm start
 
@@ -23,43 +25,34 @@ cd api-gateway && npm start
 Opção 3: Modo desenvolvimento (com nodemon)
 npm run dev
 
-3. Executar Demonstração
-# Executar cliente de demonstração após os serviços estarem rodando
+3️⃣ Executar Demonstração
+
+Após os serviços estarem rodando:
+
 npm run demo
 
-4. Verificar Status dos Serviços
-# Health check de todos os serviços
+4️⃣ Verificar Status dos Serviços
+Health check de todos os serviços
 npm run health
 
-# Verificar serviços registrados
+Verificar serviços registrados
 npm run registry
 
-📊 Endpoints Disponíveis
+5️⃣ Endpoints Disponíveis
 API Gateway (Porta 3000)
-
-1️⃣ Dashboard Agregado
-GET http://localhost:3000/api/dashboard
-Authorization: Bearer TOKEN
-Retorna estatísticas do usuário e suas listas.
-
-2️⃣ Busca Global
-GET http://localhost:3000/api/search?q=arroz
-Authorization: Bearer TOKEN
-Busca itens e listas que contenham o termo pesquisado.
-
-3️⃣ Health Check
-GET http://localhost:3000/health
-Verifica o status de todos os serviços.
-
-4️⃣ Service Registry
-GET http://localhost:3000/registry
-Lista todos os serviços registrados e seu status.
-
+Funcionalidade	Método	Endpoint	Descrição
+Dashboard Agregado	GET	/api/dashboard	Retorna estatísticas do usuário e suas listas. Authorization: Bearer TOKEN
+Busca Global	GET	/api/search?q=termo	Busca itens e listas que contenham o termo pesquisado. Authorization: Bearer TOKEN
+Health Check	GET	/health	Verifica status de todos os serviços.
+Service Registry	GET	/registry	Lista serviços registrados e status.
 User Service (Porta 3001)
+Funcionalidade	Método	Endpoint	Body / Headers
+Registrar Usuário	POST	/auth/register	JSON (email, username, password, firstName, lastName, preferences)
+Login	POST	/auth/login	JSON (username/email + password)
+Buscar Usuário por ID	GET	/users/{USER_ID}	Authorization: Bearer TOKEN
+Atualizar Usuário	PUT	/users/{USER_ID}	Authorization: Bearer TOKEN, JSON (firstName, lastName, preferences)
 
-1️⃣ Registrar Usuário
-POST http://localhost:3001/auth/register
-Content-Type: application/json
+Exemplo Body Registro:
 
 {
   "email": "teste@email.com",
@@ -73,50 +66,16 @@ Content-Type: application/json
   }
 }
 
-
-2️⃣ Login
-POST http://localhost:3001/auth/login
-Content-Type: application/json
-
-{
-  "username": "testuser",
-  "password": "senha123"
-}
-
-
-3️⃣ Buscar Usuário por ID
-GET http://localhost:3001/users/{USER_ID}
-Authorization: Bearer TOKEN
-
-4️⃣ Atualizar Usuário
-PUT http://localhost:3001/users/{USER_ID}
-Authorization: Bearer TOKEN
-Content-Type: application/json
-
-{
-  "firstName": "Nome Atualizado",
-  "lastName": "Sobrenome Atualizado",
-  "preferences": {
-    "defaultStore": "Supermercado Novo",
-    "currency": "USD"
-  }
-}
-
 Item Service (Porta 3002)
+Funcionalidade	Método	Endpoint	Body / Headers
+Listar Todos os Itens	GET	/items	-
+Buscar Item por Termo	GET	/search?q=termo	-
+Buscar Item por ID	GET	/items/{ITEM_ID}	-
+Criar Novo Item	POST	/items	Authorization: Bearer TOKEN, JSON com dados do item
+Atualizar Item	PUT	/items/{ITEM_ID}	Authorization: Bearer TOKEN, JSON com campos atualizados
+Listar Categorias	GET	/categories	-
 
-1️⃣ Listar Todos os Itens
-GET http://localhost:3002/items
-
-2️⃣ Buscar Item por Termo
-GET http://localhost:3002/search?q=arroz
-
-3️⃣ Buscar Item por ID
-GET http://localhost:3002/items/{ITEM_ID}
-
-4️⃣ Criar Novo Item (Autenticado)
-POST http://localhost:3002/items
-Authorization: Bearer TOKEN
-Content-Type: application/json
+Exemplo Body Criação de Item:
 
 {
   "name": "Leite",
@@ -129,61 +88,19 @@ Content-Type: application/json
   "active": true
 }
 
-
-5️⃣ Atualizar Item (Autenticado)
-PUT http://localhost:3002/items/{ITEM_ID}
-Authorization: Bearer TOKEN
-Content-Type: application/json
-
-{
-  "averagePrice": 5.49,
-  "active": false
-}
-
-
-6️⃣ Listar Categorias
-GET http://localhost:3002/categories
-
 List Service (Porta 3003)
+Funcionalidade	Método	Endpoint	Body / Headers
+Criar Lista	POST	/lists	Authorization: Bearer TOKEN, JSON (name, description)
+Listar Todas as Listas	GET	/lists	Authorization: Bearer TOKEN
+Buscar Lista Específica	GET	/lists/{LIST_ID}	Authorization: Bearer TOKEN
+Atualizar Lista	PUT	/lists/{LIST_ID}	Authorization: Bearer TOKEN, JSON (name, status)
+Deletar Lista	DELETE	/lists/{LIST_ID}	Authorization: Bearer TOKEN
+Adicionar Item à Lista	POST	/lists/{LIST_ID}/items	Authorization: Bearer TOKEN, JSON (itemId, quantity, notes)
+Atualizar Item da Lista	PUT	/lists/{LIST_ID}/items/{ITEM_ID}	Authorization: Bearer TOKEN, JSON (quantity, purchased, notes)
+Remover Item da Lista	DELETE	/lists/{LIST_ID}/items/{ITEM_ID}	Authorization: Bearer TOKEN
+Resumo da Lista	GET	/lists/{LIST_ID}/summary	Authorization: Bearer TOKEN
 
-1️⃣ Criar Lista
-POST http://localhost:3003/lists
-Authorization: Bearer TOKEN
-Content-Type: application/json
-
-{
-  "name": "Lista Semanal",
-  "description": "Compras para a semana"
-}
-
-
-2️⃣ Listar Todas as Listas do Usuário
-GET http://localhost:3003/lists
-Authorization: Bearer TOKEN
-
-3️⃣ Buscar Lista Específica
-GET http://localhost:3003/lists/{LIST_ID}
-Authorization: Bearer TOKEN
-
-4️⃣ Atualizar Lista
-PUT http://localhost:3003/lists/{LIST_ID}
-Authorization: Bearer TOKEN
-Content-Type: application/json
-
-{
-  "name": "Lista Atualizada",
-  "status": "completed"
-}
-
-
-5️⃣ Deletar Lista
-DELETE http://localhost:3003/lists/{LIST_ID}
-Authorization: Bearer TOKEN
-
-6️⃣ Adicionar Item à Lista
-POST http://localhost:3003/lists/{LIST_ID}/items
-Authorization: Bearer TOKEN
-Content-Type: application/json
+Exemplo Body Adicionar Item:
 
 {
   "itemId": "{ITEM_ID}",
@@ -191,63 +108,33 @@ Content-Type: application/json
   "notes": "Comprar marca boa"
 }
 
+6️⃣ Funcionalidades Técnicas Implementadas
 
-7️⃣ Atualizar Item da Lista
-PUT http://localhost:3003/lists/{LIST_ID}/items/{ITEM_ID}
-Authorization: Bearer TOKEN
-Content-Type: application/json
+Service Discovery
 
-{
-  "quantity": 3,
-  "purchased": true,
-  "notes": "Atualizado"
-}
-
-
-8️⃣ Remover Item da Lista
-DELETE http://localhost:3003/lists/{LIST_ID}/items/{ITEM_ID}
-Authorization: Bearer TOKEN
-
-9️⃣ Resumo da Lista
-GET http://localhost:3003/lists/{LIST_ID}/summary
-Authorization: Bearer TOKEN
-
-🔧 Funcionalidades Técnicas Implementadas
-
-✅ Service Discovery
-
-Registro automático de serviços na inicialização
+Registro automático na inicialização
 
 Health checks periódicos a cada 30 segundos
 
 Descoberta de serviços por nome
 
-✅ Circuit Breaker
-O Circuit Breaker protege seu sistema contra falhas consecutivas em serviços dependentes.
+Circuit Breaker
 
-Estados do Circuit Breaker:
+Protege contra falhas consecutivas
 
-FECHADO: Tudo normal. Todas as requisições passam para o serviço. Se houver falhas consecutivas, muda para ABERTO.
+3 falhas consecutivas → abre circuito
 
-ABERTO: O serviço está com problemas. Todas as requisições são bloqueadas imediatamente sem tentar chamar o serviço. Após um tempo de timeout, passa para MEIO-ABERTO.
+Timeout de 30 segundos para estado meio-aberto
 
-MEIO-ABERTO: Permite uma ou poucas requisições de teste. Se forem bem-sucedidas, volta para FECHADO; se falharem, volta para ABERTO.
+Autenticação JWT
 
-Configuração no projeto:
-
-Número de falhas consecutivas para abrir o circuito: 3
-
-Timeout antes de tentar recuperação (meio-aberto): 30 segundos
-
-✅ Autenticação JWT
-
-Tokens com validade de 24 horas
+Validade de 24 horas
 
 Hash de senhas com bcrypt
 
-Validação de email e username únicos
+Validação de email/username únicos
 
-✅ Bancos de Dados NoSQL
+Banco NoSQL
 
 Armazenamento em arquivos JSON
 
@@ -255,14 +142,12 @@ Armazenamento em arquivos JSON
 
 Schemas validados conforme especificação
 
-🗂️ Estrutura de Dados
-
+7️⃣ Estrutura de Dados
 Usuário
-
 {
   "id": "uuid",
   "email": "string",
-  "username": "string", 
+  "username": "string",
   "password": "string (hash)",
   "firstName": "string",
   "lastName": "string",
@@ -274,9 +159,7 @@ Usuário
   "updatedAt": "timestamp"
 }
 
-
 Item
-
 {
   "id": "uuid",
   "name": "string",
@@ -290,9 +173,7 @@ Item
   "createdAt": "timestamp"
 }
 
-
 Lista
-
 {
   "id": "uuid",
   "userId": "string",
@@ -313,30 +194,38 @@ Lista
   ],
   "summary": {
     "totalItems": "number",
-    "purchasedItems": "number", 
+    "purchasedItems": "number",
     "estimatedTotal": "number"
   },
   "createdAt": "timestamp",
   "updatedAt": "timestamp"
 }
 
-🐛 Solução de Problemas
+8️⃣ Solução de Problemas Comuns
 Serviços não iniciam
-# Verificar se as portas estão livres
+
+Verificar se as portas estão livres:
+
 netstat -an | grep 3000
 netstat -an | grep 3001
 netstat -an | grep 3002
 netstat -an | grep 3003
 
-# Limpar e reinstalar dependências
+
+Limpar e reinstalar dependências:
+
 npm run clean
 npm run install:all
 
 Erro de conexão entre serviços
-# Verificar registry
+
+Verificar Service Registry:
+
 curl http://localhost:3000/registry
 
-# Verificar health individual
+
+Verificar health individual:
+
 curl http://localhost:3001/health
-curl http://localhost:3002/health  
+curl http://localhost:3002/health
 curl http://localhost:3003/health
