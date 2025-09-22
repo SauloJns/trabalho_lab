@@ -13,7 +13,7 @@ class UserService {
         this.port = 3001;
         this.serviceName = 'user-service';
         this.serviceUrl = `http://localhost:${this.port}`;
-        this.jwtSecret = 'microservices-secret-key-2024'; // SECRET ÚNICO PARA TODOS
+        this.jwtSecret = 'microservices-secret-key-2024'; 
 
         this.setupDatabase();
         this.setupMiddleware();
@@ -58,7 +58,6 @@ class UserService {
         this.app.use(express.json());
         this.app.use(express.urlencoded({ extended: true }));
         
-        // CORS para permitir requisições do gateway
         this.app.use((req, res, next) => {
             res.header('Access-Control-Allow-Origin', '*');
             res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -105,7 +104,6 @@ class UserService {
             });
         });
 
-        // OPTIONS handler para CORS
         this.app.options('*', (req, res) => {
             res.sendStatus(200);
         });
@@ -149,7 +147,6 @@ class UserService {
                 });
             }
 
-            // Verificar se usuário já existe
             const existingUser = await this.usersDb.findOne({ 
                 $or: [
                     { email: email.toLowerCase() }, 
@@ -182,7 +179,6 @@ class UserService {
                 updatedAt: new Date().toISOString()
             });
 
-            // Gerar token JWT
             const token = jwt.sign(
                 { 
                     id: user.id, 
@@ -194,7 +190,6 @@ class UserService {
                 { expiresIn: '24h' }
             );
 
-            // Remover password da resposta
             const { password: _, ...userWithoutPassword } = user;
 
             console.log('✅ Usuário registrado com sucesso:', user.email);
@@ -230,7 +225,6 @@ class UserService {
                 });
             }
 
-            // Buscar usuário por email ou username
             const user = await this.usersDb.findOne({
                 $or: [
                     { email: identifier.toLowerCase() },
@@ -246,7 +240,6 @@ class UserService {
                 });
             }
 
-            // Verificar senha
             const isPasswordValid = await bcrypt.compare(password, user.password);
             if (!isPasswordValid) {
                 console.log('❌ Senha inválida para:', identifier);
@@ -263,12 +256,10 @@ class UserService {
                 });
             }
 
-            // Atualizar último login
             await this.usersDb.update(user.id, { 
                 updatedAt: new Date().toISOString() 
             });
 
-            // Gerar token
             const token = jwt.sign(
                 { 
                     id: user.id, 
@@ -439,7 +430,6 @@ class UserService {
                 });
             }
 
-            // Verificar se novo email já existe
             if (email && email !== user.email) {
                 const existingUser = await this.usersDb.findOne({ 
                     email: email.toLowerCase() 
@@ -489,7 +479,6 @@ class UserService {
             console.log(`❤️ Health: ${this.serviceUrl}/health`);
             console.log('=====================================');
             
-            // Registrar no service registry
             setTimeout(() => {
                 serviceRegistry.register(this.serviceName, {
                     url: this.serviceUrl,
@@ -506,11 +495,9 @@ class UserService {
     }
 }
 
-// Iniciar o serviço
 const userService = new UserService();
 userService.start();
 
-// Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('🛑 Recebido SIGTERM, encerrando User Service...');
     serviceRegistry.unregister('user-service');

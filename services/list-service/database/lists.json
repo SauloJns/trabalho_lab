@@ -44,5 +44,51 @@
     },
     "createdAt": "2025-09-22T14:54:52.872Z",
     "updatedAt": "2025-09-22T14:54:53.933Z"
+  },
+  {
+    "id": "ea34e9b9-16ed-4632-9d9f-f5f9f4802021",
+    "userId": "5120cc6d-5660-4a81-a01d-c57f77b91fc5",
+    "name": "Minha Primeira Lista",
+    "description": "Lista de compras de demonstração",
+    "status": "active",
+    "items": [
+      {
+        "itemId": "599cc86b-4247-4cbb-9aee-859e71b84745",
+        "itemName": "Arroz",
+        "quantity": 1,
+        "unit": "kg",
+        "estimatedPrice": 5.99,
+        "purchased": false,
+        "notes": "Item de demonstração",
+        "addedAt": "2025-09-22T15:08:13.983Z"
+      },
+      {
+        "itemId": "7321bf3a-2a5e-472e-ae84-daf63f9b3add",
+        "itemName": "Feijão",
+        "quantity": 2,
+        "unit": "kg",
+        "estimatedPrice": 8.49,
+        "purchased": false,
+        "notes": "Item de demonstração",
+        "addedAt": "2025-09-22T15:08:13.996Z"
+      },
+      {
+        "itemId": "09cf6b52-c994-45a6-92b8-a5a8663ca6a8",
+        "itemName": "Macarrão",
+        "quantity": 2,
+        "unit": "un",
+        "estimatedPrice": 3.29,
+        "purchased": false,
+        "notes": "Item de demonstração",
+        "addedAt": "2025-09-22T15:08:14.009Z"
+      }
+    ],
+    "summary": {
+      "totalItems": 5,
+      "purchasedItems": 0,
+      "estimatedTotal": 29.549999999999997
+    },
+    "createdAt": "2025-09-22T15:08:12.970Z",
+    "updatedAt": "2025-09-22T15:08:14.009Z"
   }
 ]

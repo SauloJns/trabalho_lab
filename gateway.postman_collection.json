@@ -1,0 +1,246 @@
+{
+  "info": {
+    "name": "Lista de Compras - Full Test",
+    "_postman_id": "abcdef12-3456-7890-abcd-ef1234567890",
+    "description": "Testa todas as rotas do sistema distribuído Lista de Compras",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Service Registry",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/registry",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["registry"]
+        }
+      }
+    },
+    {
+      "name": "Register User",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"demo@usuario.com\",\n  \"username\": \"demouser\",\n  \"password\": \"senha123\",\n  \"firstName\": \"Demo\",\n  \"lastName\": \"Usuário\",\n  \"preferences\": { \"defaultStore\": \"Mercado Central\", \"currency\": \"BRL\" }\n}"
+        },
+        "url": { "raw": "http://localhost:3000/api/auth/register", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "auth", "register"] }
+      }
+    },
+    {
+      "name": "Login User",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"identifier\": \"demouser\",\n  \"password\": \"senha123\"\n}"
+        },
+        "url": { "raw": "http://localhost:3000/api/auth/login", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "auth", "login"] }
+      }
+    },
+    {
+      "name": "Get User Profile",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+        "url": { "raw": "http://localhost:3000/api/users/{{USER_ID}}", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "users", "{{USER_ID}}"] }
+      }
+    },
+    {
+      "name": "Update User Profile",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"DemoUpdated\",\n  \"lastName\": \"UsuárioUpdated\"\n}" },
+        "url": { "raw": "http://localhost:3000/api/users/{{USER_ID}}", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "users", "{{USER_ID}}"] }
+      }
+    },
+    {
+      "name": "List Items",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+        "url": { "raw": "http://localhost:3000/api/items", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "items"] }
+      }
+    },
+    {
+      "name": "Get Item by ID",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+        "url": { "raw": "http://localhost:3000/api/items/{{ITEM_ID}}", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "items", "{{ITEM_ID}}"] }
+      }
+    },
+    {
+      "name": "Create Item",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"ItemDemo\",\n  \"category\": \"Alimentos\",\n  \"brand\": \"DemoBrand\",\n  \"unit\": \"un\",\n  \"averagePrice\": 10.5,\n  \"barcode\": \"123456789\",\n  \"description\": \"Item demo\",\n  \"active\": true\n}"
+        },
+        "url": { "raw": "http://localhost:3000/api/items", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "items"] }
+      }
+    },
+    {
+      "name": "Update Item",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"averagePrice\": 12.0\n}" },
+        "url": { "raw": "http://localhost:3000/api/items/{{ITEM_ID}}", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "items", "{{ITEM_ID}}"] }
+      }
+    },
+    {
+      "name": "List Categories",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+        "url": { "raw": "http://localhost:3000/api/items/categories", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "items", "categories"] }
+      }
+    },
+    {
+      "name": "Global Search",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+        "url": { "raw": "http://localhost:3000/api/search?q=demo", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "search"], "query": [{ "key": "q", "value": "demo" }] }
+      }
+    },
+    {
+      "name": "Create List",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Minha Lista Demo\",\n  \"description\": \"Lista demo via Postman\"\n}"
+        },
+        "url": { "raw": "http://localhost:3000/api/lists", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "lists"] }
+      }
+    },
+    {
+      "name": "Get All Lists",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+        "url": { "raw": "http://localhost:3000/api/lists", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "lists"] }
+      }
+    },
+    {
+      "name": "Get List by ID",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+        "url": { "raw": "http://localhost:3000/api/lists/{{LIST_ID}}", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "lists", "{{LIST_ID}}"] }
+      }
+    },
+    {
+      "name": "Update List",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Minha Lista Atualizada\",\n  \"description\": \"Descrição atualizada\"\n}" },
+        "url": { "raw": "http://localhost:3000/api/lists/{{LIST_ID}}", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "lists", "{{LIST_ID}}"] }
+      }
+    },
+    {
+      "name": "Delete List",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+        "url": { "raw": "http://localhost:3000/api/lists/{{LIST_ID}}", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "lists", "{{LIST_ID}}"] }
+      }
+    },
+    {
+      "name": "Add Item to List",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"itemId\": \"{{ITEM_ID}}\",\n  \"quantity\": 2,\n  \"notes\": \"Teste via Postman\"\n}" },
+        "url": { "raw": "http://localhost:3000/api/lists/{{LIST_ID}}/items", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "lists", "{{LIST_ID}}", "items"] }
+      }
+    },
+    {
+      "name": "Update Item in List",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"quantity\": 3,\n  \"purchased\": true\n}" },
+        "url": { "raw": "http://localhost:3000/api/lists/{{LIST_ID}}/items/{{ITEM_ID}}", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "lists", "{{LIST_ID}}", "items", "{{ITEM_ID}}"] }
+      }
+    },
+    {
+      "name": "Delete Item from List",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+        "url": { "raw": "http://localhost:3000/api/lists/{{LIST_ID}}/items/{{ITEM_ID}}", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "lists", "{{LIST_ID}}", "items", "{{ITEM_ID}}"] }
+      }
+    },
+    {
+      "name": "Get List Summary",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+        "url": { "raw": "http://localhost:3000/api/lists/{{LIST_ID}}/summary", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "lists", "{{LIST_ID}}", "summary"] }
+      }
+    },
+    {
+      "name": "Get Dashboard",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN}}" }],
+        "url": { "raw": "http://localhost:3000/api/dashboard", "protocol": "http", "host": ["localhost"], "port": "3000", "path": ["api", "dashboard"] }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "TOKEN", "value": "" },
+    { "key": "USER_ID", "value": "" },
+    { "key": "ITEM_ID", "value": "" },
+    { "key": "LIST_ID", "value": "" }
+  ]
+}
